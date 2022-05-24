@@ -1,0 +1,21 @@
+<div>
+  <input class="form-control" type="file" (change)="onChange($event)">
+
+  <button (click)="onUpload()" class="btn btn-success">
+    Upload
+  </button>
+</div>
+
+<!--Flag variable is used here-->
+<div class="container" *ngIf="loading">
+  <h3>Loading ...</h3>
+</div>
+
+
+
+<div class="image-container">
+    <div class="image-container__item" *ngFor="let img of images">
+      <img [src]="img.previewImagePath" alt="img"/>
+    </div>
+</div>
+

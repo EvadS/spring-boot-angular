@@ -1,0 +1,35 @@
+cors:
+  enabled: true
+aws:
+  region: eu-central-1
+
+
+# H2
+spring:
+  profiles:
+    active: local
+  h2:
+    console:
+      enabled: true
+      path: /console
+  datasource:
+    username: sa
+    url: jdbc:h2:file:~/db/aws-app;DB_CLOSE_DELAY=-1
+    password: 123456
+    driver-class-name: org.h2.Driver
+  jpa:
+    database-platform=org:
+      hibernate:
+        ddl-auto: update
+        dialect:
+          H2Dialect: org.hibernate.dialect.H2Dialect
+
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+image:
+  preview:
+    height: 150
+    weight: 150
+

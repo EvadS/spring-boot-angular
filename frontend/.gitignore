@@ -95,4 +95,3 @@ local.properties
 
 
 hs_err_pid*
-/backend/src/main/resources/application-local.yaml

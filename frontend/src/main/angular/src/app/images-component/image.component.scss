@@ -1,0 +1,6 @@
+.image-container {
+  display: flex;
+  &__item {
+    min-width: 33.33%;
+  }
+}
