@@ -7,11 +7,13 @@ import com.aws.application.errors.exception.ImageProcessingException;
 import com.aws.application.errors.exception.ResourceNotFoundException;
 import com.aws.application.mapper.ImageMapper;
 import com.aws.application.models.payload.ConvertToMultipartFile;
+import com.aws.application.models.payload.RecognitionLabels;
 import com.aws.application.models.payload.ResizeModel;
 import com.aws.application.models.response.ImageResponse;
 import com.aws.application.repository.ImageRepository;
 import com.aws.application.service.FileStore;
 import com.aws.application.service.ImageService;
+import com.aws.application.service.RekognitionService;
 import com.aws.application.util.ImageUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +26,7 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -36,6 +39,7 @@ import static com.aws.application.util.Constants.DEFAULT_FILE_EXTENSION;
 public class ImageServiceImpl implements ImageService {
     private final FileStore fileStore;
     private final ImageRepository repository;
+    private final RekognitionService rekognitionService;
 
     @Value("${image.preview.height:150}")
     private int previewHeight;
@@ -44,7 +48,7 @@ public class ImageServiceImpl implements ImageService {
     private int previewWidth;
 
     @Override
-    public ImageResponse saveImage(String title, MultipartFile file) {
+    public ImageResponse saveImage(String title, MultipartFile  file) {
         log.info("save image, file:{}, title:{}", file.getOriginalFilename(), title);
         String fileName = String.format("%s", file.getOriginalFilename());
 
@@ -60,6 +64,10 @@ public class ImageServiceImpl implements ImageService {
             // upload preview
             fileStore.uploadFile(BucketName.IMAGE_BUCKET_NAME.getBucketName(), previewFileName, ImageUtils.ConvertMultiPartToFile(previewMultipart));
             String reviewFileUrl = fileStore.getUrl(BucketName.IMAGE_BUCKET_NAME.getBucketName(), previewFileName);
+
+
+            List<RecognitionLabels> recognitionLabels = rekognitionService.searchLabels(file);
+            recognitionLabels.stream().forEach(i -> log.info(i.toString()));
 
             Image image = Image.builder()
                     .title(title)

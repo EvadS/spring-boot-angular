@@ -46,8 +46,4 @@ public class FileStoreImpl implements FileStore {
             throw new IllegalStateException("Failed to download the file", e);
         }
     }
-
-    private void uploadFileTos3bucket(String bucketName, String fileName, File file) {
-        amazonS3.putObject(new PutObjectRequest(bucketName, fileName, file));
-    }
 }
