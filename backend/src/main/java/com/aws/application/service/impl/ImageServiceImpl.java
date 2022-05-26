@@ -2,6 +2,7 @@ package com.aws.application.service.impl;
 
 import com.aws.application.config.BucketName;
 import com.aws.application.domain.Image;
+import com.aws.application.domain.ImageLabel;
 import com.aws.application.errors.exception.FileStorageException;
 import com.aws.application.errors.exception.ImageProcessingException;
 import com.aws.application.errors.exception.ResourceNotFoundException;
@@ -27,7 +28,9 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -67,13 +70,25 @@ public class ImageServiceImpl implements ImageService {
 
 
             List<RecognitionLabels> recognitionLabels = rekognitionService.searchLabels(file);
-            recognitionLabels.stream().forEach(i -> log.info(i.toString()));
+            recognitionLabels.stream().forEach(i ->  log.info(i.toString()));
+
+            // prepare image rekognition to store
+            Set<ImageLabel> imageLabelSet = new HashSet<>();
+
+            recognitionLabels.stream().forEach(i-> {
+                ImageLabel imageLabel =  ImageLabel.builder()
+                        .name(i.getName())
+                        .confidence(i.getConfidence())
+                        .build();
+                imageLabelSet.add(imageLabel);
+            });
 
             Image image = Image.builder()
                     .title(title)
                     .imagePath(fileUrl)
                     .imageFileName(fileName)
                     .previewImagePath(reviewFileUrl)
+                    .labels(imageLabelSet)
                     .build();
             repository.save(image);
 
@@ -96,13 +111,13 @@ public class ImageServiceImpl implements ImageService {
 
     @Override
     public List<ImageResponse> searchByName(String filter) {
-        log.info("Search by title, filter:{}", filter);
         if (StringUtils.isEmpty(filter)) {
+            log.info("Get all images");
             return repository.findAll().stream()
                     .map(ImageMapper.INSTANCE::toImageResponse)
                     .collect(Collectors.toList());
         } else {
-
+            log.info("Search by title, filter:{}", filter);
             return repository.findByTitleContains(filter).stream()
                     .map(ImageMapper.INSTANCE::toImageResponse)
                     .collect(Collectors.toList());
