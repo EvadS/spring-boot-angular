@@ -26,6 +26,34 @@ You need to create a test user:
 }
 ```
 
+
+### get all query body 
+
+images like ball
+```
+{
+  "pageNumber": 0,
+  "pageSize": 10,
+  "sortOrder": {
+    "ascendingOrder": [
+      "title"
+    ]   
+  },
+  "joinColumnProps" : [
+  {
+    "joinColumnName" : "labels",
+    "searchFilter" : {
+      "operator": "LIKE",
+      "property": "name",
+      "value": "ball"
+    }
+   }
+  ]
+}
+```
+
+
+
 ## Running tests
 
 Run all backend tests with the following command in the root directory:

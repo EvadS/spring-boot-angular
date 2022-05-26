@@ -10,29 +10,31 @@ import com.aws.application.mapper.ImageMapper;
 import com.aws.application.models.payload.ConvertToMultipartFile;
 import com.aws.application.models.payload.RecognitionLabels;
 import com.aws.application.models.payload.ResizeModel;
+import com.aws.application.models.response.ImageInformation;
 import com.aws.application.models.response.ImageResponse;
+import com.aws.application.models.response.RecognitionResponse;
+import com.aws.application.models.specification.SearchQuery;
 import com.aws.application.repository.ImageRepository;
 import com.aws.application.service.FileStore;
 import com.aws.application.service.ImageService;
 import com.aws.application.service.RekognitionService;
 import com.aws.application.util.ImageUtils;
+import com.aws.application.util.SpecificationUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.*;
 
 import static com.aws.application.util.Constants.DEFAULT_FILE_EXTENSION;
 
@@ -51,7 +53,7 @@ public class ImageServiceImpl implements ImageService {
     private int previewWidth;
 
     @Override
-    public ImageResponse saveImage(String title, MultipartFile  file) {
+    public ImageResponse saveImage(String title, MultipartFile file) {
         log.info("save image, file:{}, title:{}", file.getOriginalFilename(), title);
         String fileName = String.format("%s", file.getOriginalFilename());
 
@@ -70,13 +72,13 @@ public class ImageServiceImpl implements ImageService {
 
 
             List<RecognitionLabels> recognitionLabels = rekognitionService.searchLabels(file);
-            recognitionLabels.stream().forEach(i ->  log.info(i.toString()));
+            recognitionLabels.stream().forEach(i -> log.info(i.toString()));
 
             // prepare image rekognition to store
             Set<ImageLabel> imageLabelSet = new HashSet<>();
 
-            recognitionLabels.stream().forEach(i-> {
-                ImageLabel imageLabel =  ImageLabel.builder()
+            recognitionLabels.stream().forEach(i -> {
+                ImageLabel imageLabel = ImageLabel.builder()
                         .name(i.getName())
                         .confidence(i.getConfidence())
                         .build();
@@ -111,17 +113,66 @@ public class ImageServiceImpl implements ImageService {
 
     @Override
     public List<ImageResponse> searchByName(String filter) {
-        if (StringUtils.isEmpty(filter)) {
-            log.info("Get all images");
-            return repository.findAll().stream()
-                    .map(ImageMapper.INSTANCE::toImageResponse)
-                    .collect(Collectors.toList());
-        } else {
-            log.info("Search by title, filter:{}", filter);
-            return repository.findByTitleContains(filter).stream()
-                    .map(ImageMapper.INSTANCE::toImageResponse)
-                    .collect(Collectors.toList());
+        List<ImageResponse> result = new ArrayList<>();
+
+        repository.findAll()
+                .forEach(i -> {
+                    result.add(ImageMapper.INSTANCE.toImageResponse(i));
+                });
+        return result;
+    }
+
+    @Override
+    public List<Image> search(SearchQuery searchQuery) {
+        Specification<Image> spec = SpecificationUtil.bySearchQuery(searchQuery, Image.class);
+        PageRequest pageRequest = getPageRequest(searchQuery);
+
+        Page<Image> page = repository.findAll(spec, pageRequest);
+
+        return page.getContent();
+    }
+
+    @Override
+    public ImageInformation getById(Long id) {
+        log.info("Get image by id:{}", id);
+        Image image = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Image", "id ", id));
+
+        ImageResponse imageResponse = ImageMapper.INSTANCE.toImageResponse(image);
+        List<RecognitionResponse> rekognitionList = new ArrayList();
+
+        image.getLabels().stream()
+                .forEach(i -> rekognitionList.add(RecognitionResponse.builder()
+                        .name(i.getName())
+                        .confidence(i.getConfidence())
+                        .build()));
+
+        return  new ImageInformation(imageResponse,rekognitionList );
+    }
+
+    private PageRequest getPageRequest(SearchQuery searchQuery) {
+
+        int pageNumber = searchQuery.getPageNumber();
+        int pageSize = searchQuery.getPageSize();
+
+        List<Sort.Order> orders = new ArrayList<>();
+        List<String> ascProps = searchQuery.getSortOrder().getAscendingOrder();
+
+        if (ascProps != null && !ascProps.isEmpty()) {
+            for (String prop : ascProps) {
+                orders.add(Sort.Order.asc(prop));
+            }
         }
+
+        List<String> descProps = searchQuery.getSortOrder().getDescendingOrder();
+        if (descProps != null && !descProps.isEmpty()) {
+            for (String prop : descProps) {
+                orders.add(Sort.Order.desc(prop));
+            }
+        }
+
+        Sort sort = Sort.by(orders);
+        return PageRequest.of(pageNumber, pageSize, sort);
     }
 
     private MultipartFile scaleImage(MultipartFile multipartFile, String fileName, String format) {
